@@ -150,12 +150,10 @@ const seedData = async () => {
     console.log('Safety zones created successfully');
 
     // Create a sample user
-    const hashedPassword = await bcrypt.hash('password123', 10);
-    
     const sampleUser = new User({
       fullName: 'John Doe',
       email: 'john.doe@example.com',
-      password: hashedPassword,
+      password: 'password123', // Let the model hash it
       nationality: 'American',
       passportId: 'A12345678',
       phoneNumber: '+1-555-0123',
