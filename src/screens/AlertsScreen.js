@@ -6,59 +6,143 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { incidentsAPI } from '../services/api';
+import * as Location from 'expo-location';
+import { incidentsAPI, weatherAPI } from '../services/api';
 
 export default function AlertsScreen() {
   const [alerts, setAlerts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [location, setLocation] = useState(null);
 
   useEffect(() => {
-    loadAlerts();
+    getLocationAndLoadAlerts();
   }, []);
 
-  const loadAlerts = async () => {
+  const getLocationAndLoadAlerts = async () => {
+    try {
+      // Request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required for weather alerts');
+        loadMockAlerts();
+        return;
+      }
+
+      // Get current location
+      const location = await Location.getCurrentPositionAsync({});
+      setLocation(location.coords);
+      await loadAlerts(location.coords);
+    } catch (error) {
+      console.error('Error getting location:', error);
+      loadMockAlerts();
+    }
+  };
+
+  const loadAlerts = async (coords = null) => {
     try {
       setIsLoading(true);
-      // Mock data for demo
-      const mockAlerts = [
-        {
-          id: '1',
-          type: 'safety_alert',
-          title: 'Weather Warning',
-          message: 'Heavy rain expected in your area. Stay indoors if possible.',
-          severity: 'medium',
-          timestamp: new Date(),
-          isRead: false,
-        },
-        {
-          id: '2',
-          type: 'incident_report',
-          title: 'Traffic Incident',
-          message: 'Road closure on Main Street due to construction.',
-          severity: 'low',
-          timestamp: new Date(Date.now() - 3600000),
-          isRead: true,
-        },
-        {
-          id: '3',
-          type: 'safety_alert',
-          title: 'Emergency Services Alert',
-          message: 'Police activity reported in downtown area. Avoid the area if possible.',
-          severity: 'high',
-          timestamp: new Date(Date.now() - 7200000),
-          isRead: false,
-        },
-      ];
-      setAlerts(mockAlerts);
+      const allAlerts = [];
+
+      // Load weather alerts if location is available
+      if (coords) {
+        try {
+          const weatherResponse = await weatherAPI.getWeatherAlerts(coords.latitude, coords.longitude);
+          if (weatherResponse.data.success) {
+            const weatherAlerts = weatherResponse.data.data.map((alert, index) => ({
+              id: `weather_${index}`,
+              type: 'weather_alert',
+              title: alert.title,
+              message: alert.message,
+              severity: alert.severity,
+              timestamp: new Date(alert.timestamp),
+              isRead: false,
+              icon: alert.icon,
+            }));
+            allAlerts.push(...weatherAlerts);
+          }
+        } catch (error) {
+          console.error('Error loading weather alerts:', error);
+        }
+      }
+
+      // Load incident alerts
+      try {
+        const incidentsResponse = await incidentsAPI.getMyIncidents();
+        if (incidentsResponse.data.success) {
+          const incidentAlerts = incidentsResponse.data.data.map(incident => ({
+            id: `incident_${incident._id}`,
+            type: 'incident_report',
+            title: `Incident Report: ${incident.type}`,
+            message: incident.description,
+            severity: incident.severity || 'medium',
+            timestamp: new Date(incident.createdAt),
+            isRead: incident.status === 'resolved',
+          }));
+          allAlerts.push(...incidentAlerts);
+        }
+      } catch (error) {
+        console.error('Error loading incident alerts:', error);
+      }
+
+      // Sort alerts by timestamp (newest first)
+      allAlerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setAlerts(allAlerts);
     } catch (error) {
       console.error('Error loading alerts:', error);
+      loadMockAlerts();
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadMockAlerts = () => {
+    const mockAlerts = [
+      {
+        id: '1',
+        type: 'weather_alert',
+        title: 'Weather Warning',
+        message: 'Heavy rain expected in your area. Stay indoors if possible.',
+        severity: 'medium',
+        timestamp: new Date(),
+        isRead: false,
+        icon: 'rainy',
+      },
+      {
+        id: '2',
+        type: 'incident_report',
+        title: 'Traffic Incident',
+        message: 'Road closure on Main Street due to construction.',
+        severity: 'low',
+        timestamp: new Date(Date.now() - 3600000),
+        isRead: true,
+      },
+      {
+        id: '3',
+        type: 'safety_alert',
+        title: 'Emergency Services Alert',
+        message: 'Police activity reported in downtown area. Avoid the area if possible.',
+        severity: 'high',
+        timestamp: new Date(Date.now() - 7200000),
+        isRead: false,
+      },
+    ];
+    setAlerts(mockAlerts);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    if (location) {
+      await loadAlerts(location);
+    } else {
+      await getLocationAndLoadAlerts();
+    }
+    setRefreshing(false);
   };
 
   const markAsRead = (alertId) => {
@@ -86,7 +170,27 @@ export default function AlertsScreen() {
     );
   };
 
-  const getAlertIcon = (type) => {
+  const getAlertIcon = (type, icon = null) => {
+    if (icon) {
+      // Use specific weather icon if provided
+      switch (icon) {
+        case 'thunderstorm':
+          return 'thunderstorm';
+        case 'wind':
+          return 'leaf';
+        case 'eye-off':
+          return 'eye-off';
+        case 'snow':
+          return 'snow';
+        case 'sunny':
+          return 'sunny';
+        case 'rainy':
+          return 'rainy';
+        default:
+          return 'cloud';
+      }
+    }
+    
     switch (type) {
       case 'safety_alert':
         return 'warning';
@@ -146,7 +250,18 @@ export default function AlertsScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#007AFF']}
+            tintColor="#007AFF"
+          />
+        }
+      >
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>Loading alerts...</Text>
@@ -172,7 +287,7 @@ export default function AlertsScreen() {
               <View style={styles.alertHeader}>
                 <View style={styles.alertIconContainer}>
                   <Ionicons
-                    name={getAlertIcon(alert.type)}
+                    name={getAlertIcon(alert.type, alert.icon)}
                     size={24}
                     color={getSeverityColor(alert.severity)}
                   />

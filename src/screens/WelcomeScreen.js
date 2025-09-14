@@ -65,14 +65,24 @@ export default function WelcomeScreen({ navigation }) {
             Explore with confidence. Our AI-powered system monitors your surroundings in real-time, ensuring a safe and enjoyable journey.
           </Text>
 
-          {/* Get Started Button */}
-          <TouchableOpacity
-            style={styles.getStartedButton}
-            onPress={() => navigation.navigate('CreateAccount')}
-          >
-            <Text style={styles.buttonText}>Get Started</Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
-          </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={styles.getStartedButton}
+              onPress={() => navigation.navigate('CreateAccount')}
+            >
+              <Text style={styles.buttonText}>Get Started</Text>
+              <Ionicons name="arrow-forward" size={20} color="white" />
+            </TouchableOpacity>
+
+             <TouchableOpacity
+               style={styles.loginButton}
+               onPress={() => navigation.navigate('Login')}
+             >
+               <Text style={styles.loginButtonText}>Already have an account? </Text>
+               <Text style={styles.loginButtonLink}>Sign In</Text>
+             </TouchableOpacity>
+          </View>
         </View>
       </View>
       </View>
@@ -254,6 +264,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 40,
   },
+  buttonContainer: {
+    gap: 16,
+  },
   getStartedButton: {
     backgroundColor: '#007AFF',
     flexDirection: 'row',
@@ -261,11 +274,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderRadius: 25,
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonText: {
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
     marginRight: 8,
+  },
+  loginButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  loginButtonText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+    fontWeight: '400',
+  },
+  loginButtonLink: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

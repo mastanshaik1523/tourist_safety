@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import screens
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import LoginScreen from './src/screens/LoginScreen';
 import CreateAccountScreen from './src/screens/CreateAccountScreen';
 import IdentityVerificationScreen from './src/screens/IdentityVerificationScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -17,6 +18,7 @@ import AlertsScreen from './src/screens/AlertsScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import EmergencyContactsScreen from './src/screens/EmergencyContactsScreen';
 
 // Import context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -78,6 +80,7 @@ function AppNavigator() {
           // Auth Stack
           <>
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
             <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} />
           </>
@@ -86,6 +89,7 @@ function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="EmergencyContacts" component={EmergencyContactsScreen} />
             <Stack.Screen name="History" component={HistoryScreen} />
             <Stack.Screen name="IdentityVerification" component={IdentityVerificationScreen} />
           </>

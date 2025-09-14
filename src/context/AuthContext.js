@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
+      console.log('Attempting registration with data:', { ...userData, password: '[HIDDEN]' });
       const response = await authAPI.register(userData);
       const { token: newToken, user: newUser } = response.data;
       
@@ -69,12 +70,19 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken);
       setUser(newUser);
       
+      console.log('Registration successful');
       return { success: true };
     } catch (error) {
       console.error('Registration error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status
+      });
       return { 
         success: false, 
-        error: error.response?.data?.message || 'Registration failed' 
+        error: error.response?.data?.message || error.message || 'Registration failed' 
       };
     }
   };

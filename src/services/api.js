@@ -1,8 +1,25 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// For APK testing, we'll use localhost with adb port forwarding
-// Make sure to run: adb reverse tcp:3000 tcp:3000
-const API_BASE_URL = 'http://localhost:3000/api';
+import { Platform } from 'react-native';
+
+// Configure API base URL based on platform
+// For Android emulator: use localhost with adb port forwarding (adb reverse tcp:3000 tcp:3000)
+// For physical device: use your machine's IP address
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    // Development mode - use network IP for physical devices, localhost for emulator
+    return Platform.OS === 'android' 
+      ? 'http://192.168.29.8:3000/api'  // Network IP for physical device
+      : 'http://localhost:3000/api';     // localhost for iOS simulator
+  }
+  // Production mode - use your production API URL
+  return 'https://your-production-api.com/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log the API base URL for debugging
+console.log('API Base URL:', API_BASE_URL);
 
 // Create axios instance
 const api = axios.create({
@@ -75,6 +92,14 @@ export const emergencyContactsAPI = {
   addContact: (contactData) => api.post('/emergency-contacts', contactData),
   updateContact: (id, contactData) => api.put(`/emergency-contacts/${id}`, contactData),
   deleteContact: (id) => api.delete(`/emergency-contacts/${id}`),
+};
+
+// Weather API
+export const weatherAPI = {
+  getCurrentWeather: (lat, lon) => api.get('/weather/current', { params: { lat, lon } }),
+  getWeatherAlerts: (lat, lon) => api.get('/weather/alerts', { params: { lat, lon } }),
+  getWeatherForecast: (lat, lon) => api.get('/weather/forecast', { params: { lat, lon } }),
+  getSafetyReport: (lat, lon) => api.get('/weather/safety-report', { params: { lat, lon } }),
 };
 
 export default api;

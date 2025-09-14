@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { emergencyContactsAPI } from '../services/api';
 
 export default function SettingsScreen({ navigation }) {
@@ -25,27 +26,31 @@ export default function SettingsScreen({ navigation }) {
     loadEmergencyContacts();
   }, []);
 
+  // Reload contacts when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadEmergencyContacts();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const loadEmergencyContacts = async () => {
     try {
       setIsLoading(true);
-      // Mock data for demo
-      const mockContacts = [
-        {
-          _id: '1',
-          name: 'Ethan Carter',
-          phoneNumber: '+1-555-123-4567',
-          relationship: 'Emergency Contact',
-        },
-        {
-          _id: '2',
-          name: 'Sophia Clark',
-          phoneNumber: '+1-555-987-6543',
-          relationship: 'Emergency Contact',
-        },
-      ];
-      setEmergencyContacts(mockContacts);
+      
+      // Load from AsyncStorage
+      const storedContacts = await AsyncStorage.getItem('emergencyContacts');
+      
+      if (storedContacts) {
+        setEmergencyContacts(JSON.parse(storedContacts));
+      } else {
+        // If no stored contacts, use empty array
+        setEmergencyContacts([]);
+      }
     } catch (error) {
       console.error('Error loading emergency contacts:', error);
+      setEmergencyContacts([]);
     } finally {
       setIsLoading(false);
     }
@@ -176,43 +181,43 @@ export default function SettingsScreen({ navigation }) {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Emergency Contacts Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+            <TouchableOpacity
+              style={styles.manageButton}
+              onPress={() => navigation.navigate('EmergencyContacts')}
+            >
+              <Text style={styles.manageButtonText}>Manage</Text>
+              <Ionicons name="chevron-forward" size={16} color="#007AFF" />
+            </TouchableOpacity>
+          </View>
           
-          {emergencyContacts.map((contact) => (
-            <View key={contact._id} style={styles.contactCard}>
-              <View style={styles.contactAvatar}>
-                <Text style={styles.contactAvatarText}>
-                  {contact.name.charAt(0)}
-                </Text>
+          {emergencyContacts.length > 0 ? (
+            emergencyContacts.slice(0, 2).map((contact) => (
+              <View key={contact._id} style={styles.contactCard}>
+                <View style={styles.contactAvatar}>
+                  <Text style={styles.contactAvatarText}>
+                    {contact.name.charAt(0)}
+                  </Text>
+                </View>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactName}>{contact.name}</Text>
+                  <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
+                </View>
               </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactName}>{contact.name}</Text>
-                <Text style={styles.contactPhone}>{contact.phoneNumber}</Text>
-              </View>
-              <View style={styles.contactActions}>
-                <TouchableOpacity
-                  onPress={() => handleEditContact(contact)}
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="pencil" size={16} color="#007AFF" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDeleteContact(contact._id)}
-                  style={styles.actionButton}
-                >
-                  <Ionicons name="trash" size={16} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
+            ))
+          ) : (
+            <View style={styles.emptyContacts}>
+              <Ionicons name="call-outline" size={32} color="#8E8E93" />
+              <Text style={styles.emptyContactsText}>No emergency contacts</Text>
             </View>
-          ))}
+          )}
 
-          <TouchableOpacity
-            style={styles.addContactButton}
-            onPress={handleAddContact}
-          >
-            <Ionicons name="add" size={20} color="white" />
-            <Text style={styles.addContactText}>Add New Contact</Text>
-          </TouchableOpacity>
+          {emergencyContacts.length > 2 && (
+            <Text style={styles.moreContactsText}>
+              +{emergencyContacts.length - 2} more contacts
+            </Text>
+          )}
         </View>
 
         {/* Privacy Settings Section */}
@@ -320,11 +325,25 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 20,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1C1C1E',
-    marginBottom: 15,
+  },
+  manageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  manageButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+    marginRight: 4,
   },
   contactCard: {
     backgroundColor: 'white',
@@ -384,6 +403,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  emptyContacts: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  emptyContactsText: {
+    fontSize: 16,
+    color: '#8E8E93',
+    marginTop: 10,
+  },
+  moreContactsText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
   },
   settingItem: {
     backgroundColor: 'white',

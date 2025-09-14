@@ -36,6 +36,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/safety-zones', require('./routes/safetyZones'));
 app.use('/api/emergency-contacts', require('./routes/emergencyContacts'));
+app.use('/api/weather', require('./routes/weather'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
