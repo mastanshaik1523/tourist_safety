@@ -18,6 +18,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.tourshield.app",
       "icon": "./assets/icons/icon.png",
+      "config": {
+        "googleMapsApiKey": "AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,6 +28,11 @@
     "android": {
       "package": "com.tourshield.app",
       "icon": "./assets/icons/icon.png",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM"
+        }
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

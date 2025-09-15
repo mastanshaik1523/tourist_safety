@@ -3,6 +3,14 @@ export const MAP_CONFIG = {
   // Replace with your actual Google Maps API key
   API_KEY: 'AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM',
   
+  // Fallback region in case location fails
+  FALLBACK_REGION: {
+    latitude: 37.78825,
+    longitude: -122.4324,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  },
+  
   // Default map region (San Francisco)
   DEFAULT_REGION: {
     latitude: 37.78825,
