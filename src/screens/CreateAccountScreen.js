@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 
 export default function CreateAccountScreen({ navigation }) {
+  
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -30,6 +31,19 @@ export default function CreateAccountScreen({ navigation }) {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  // Helper function for input styles
+  const getInputStyle = () => ({
+    backgroundColor: '#F2F2F7',
+    color: '#1C1C1E',
+    borderColor: 'transparent'
+  });
+
+  const getTextStyle = () => ({
+    color: '#1C1C1E'
+  });
+
+  const getPlaceholderColor = () => '#8E8E93';
 
   const handleNext = async () => {
     // Basic validation
@@ -77,7 +91,7 @@ export default function CreateAccountScreen({ navigation }) {
       <View style={styles.progressContainer}>
         <View style={styles.progressHeader}>
           <Text style={styles.progressText}>Step 1 of 5</Text>
-          <Text style={styles.currentStep}>Personal Info</Text>
+          <Text style={[styles.currentStep, { color: '#007AFF' }]}>Personal Info</Text>
         </View>
         <View style={styles.progressBar}>
           <View style={styles.progressFill} />
@@ -89,41 +103,47 @@ export default function CreateAccountScreen({ navigation }) {
           {/* Personal Information */}
           <View style={styles.section}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Full Name"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.fullName}
               onChangeText={(value) => handleInputChange('fullName', value)}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Nationality"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.nationality}
               onChangeText={(value) => handleInputChange('nationality', value)}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Passport/ID Number"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.passportId}
               onChangeText={(value) => handleInputChange('passportId', value)}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Email"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.email}
               onChangeText={(value) => handleInputChange('email', value)}
               keyboardType="email-address"
               autoCapitalize="none"
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Password"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.password}
               onChangeText={(value) => handleInputChange('password', value)}
               secureTextEntry
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Phone Number"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.phoneNumber}
               onChangeText={(value) => handleInputChange('phoneNumber', value)}
               keyboardType="phone-pad"
@@ -132,16 +152,18 @@ export default function CreateAccountScreen({ navigation }) {
 
           {/* Emergency Contact */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Emergency Contact</Text>
+            <Text style={[styles.sectionTitle, getTextStyle()]}>Emergency Contact</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Emergency Contact Name"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.emergencyContactName}
               onChangeText={(value) => handleInputChange('emergencyContactName', value)}
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, getInputStyle()]}
               placeholder="Emergency Contact Number"
+              placeholderTextColor={getPlaceholderColor()}
               value={formData.emergencyContactNumber}
               onChangeText={(value) => handleInputChange('emergencyContactNumber', value)}
               keyboardType="phone-pad"
@@ -158,11 +180,11 @@ export default function CreateAccountScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.disclaimer}>
+          <Text style={[styles.disclaimer, { color: '#8E8E93' }]}>
             By proceeding, you agree to our{' '}
-            <Text style={styles.link}>Terms of Service</Text>
+            <Text style={[styles.link, { color: '#007AFF' }]}>Terms of Service</Text>
             {' '}and{' '}
-            <Text style={styles.link}>Privacy Policy.</Text>
+            <Text style={[styles.link, { color: '#007AFF' }]}>Privacy Policy.</Text>
           </Text>
         </View>
       </ScrollView>

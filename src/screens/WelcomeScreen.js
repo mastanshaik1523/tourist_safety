@@ -20,7 +20,7 @@ export default function WelcomeScreen({ navigation }) {
       <StatusBar style="dark" backgroundColor="#F2F2F7" />
       <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Welcome & Onboarding</Text>
+        <Text style={styles.headerText}>TourShield</Text>
         <View style={styles.profileIcon}>
           <Ionicons name="person-outline" size={24} color="#007AFF" />
         </View>

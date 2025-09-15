@@ -1,32 +1,44 @@
 {
   "expo": {
-    "name": "Smart Tourist",
-    "slug": "smart-tourist-app",
+    "name": "TourShield",
+    "slug": "tourshield-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icons/icon.png",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#667eea",
+      "image": "./assets/icons/splash.png"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.smarttourist.app"
+      "bundleIdentifier": "com.tourshield.app",
+      "icon": "./assets/icons/icon.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.smarttourist.app",
+      "package": "com.tourshield.app",
+      "icon": "./assets/icons/icon.png",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
+        "CALL_PHONE",
+        "SEND_SMS",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CALL_PHONE",
+        "android.permission.SEND_SMS",
+        "android.permission.READ_PHONE_STATE"
       ]
     },
     "plugins": [
@@ -45,8 +57,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "9bfd433f-ab25-415f-84d9-f27226053b30"
-      }
-    }
+        "projectId": "4d1b1d2d-fce6-42e8-a207-60dcd4404fe7"
+      },
+      "googleMapsApiKey": "AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM"
+    },
+    "owner": "mastan1523"
   }
 }

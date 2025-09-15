@@ -1,26 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Circle } from 'react-native-maps';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE, PROVIDER_DEFAULT } from 'react-native-maps';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { MAP_CONFIG } from '../config/maps';
 
 export default function MapScreen() {
+  const mapRef = useRef(null);
+  
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [mapRegion, setMapRegion] = useState({
-    latitude: 37.78825,
-    longitude: -122.4324,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapRegion, setMapRegion] = useState(MAP_CONFIG.DEFAULT_REGION);
 
   useEffect(() => {
     getCurrentLocation();
@@ -28,35 +30,58 @@ export default function MapScreen() {
 
   const getCurrentLocation = async () => {
     try {
+      setIsLoading(true);
+      setErrorMsg(null);
+      
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setErrorMsg('Permission to access location was denied');
+        setIsLoading(false);
         return;
       }
 
-      let location = await Location.getCurrentPositionAsync({});
+      let location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeout: 15000,
+        maximumAge: 30000,
+      });
+      
       setLocation(location);
-      setMapRegion({
+      const newRegion = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        latitudeDelta: 0.0922,
-        longitudeDelta: 0.0421,
-      });
+        latitudeDelta: MAP_CONFIG.DEFAULT_REGION.latitudeDelta,
+        longitudeDelta: MAP_CONFIG.DEFAULT_REGION.longitudeDelta,
+      };
+      
+      setMapRegion(newRegion);
+      
+      // Animate to location if map is ready
+      if (mapRef.current && mapReady) {
+        mapRef.current.animateToRegion(newRegion, 1000);
+      }
     } catch (error) {
-      setErrorMsg('Error getting location');
+      console.error('Location error:', error);
+      setErrorMsg('Error getting location. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleMapPress = (event) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
-    Alert.alert(
-      'Location Selected',
-      `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`,
-      [
-        { text: 'Report Incident', onPress: () => reportIncidentAtLocation(latitude, longitude) },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    try {
+      const { latitude, longitude } = event.nativeEvent.coordinate;
+      Alert.alert(
+        'Location Selected',
+        `Lat: ${latitude.toFixed(6)}, Lng: ${longitude.toFixed(6)}`,
+        [
+          { text: 'Report Incident', onPress: () => reportIncidentAtLocation(latitude, longitude) },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+    } catch (error) {
+      console.error('Error handling map press:', error);
+    }
   };
 
   const reportIncidentAtLocation = (latitude, longitude) => {
@@ -70,59 +95,136 @@ export default function MapScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Safety Map</Text>
-          <TouchableOpacity onPress={getCurrentLocation}>
-            <Ionicons name="locate" size={24} color="#007AFF" />
+          <TouchableOpacity onPress={getCurrentLocation} disabled={isLoading}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Ionicons name="locate" size={24} color="#007AFF" />
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.mapContainer}>
-        <MapView
-          style={styles.map}
-          region={mapRegion}
-          onPress={handleMapPress}
-          showsUserLocation={true}
-          showsMyLocationButton={false}
-        >
-          {/* Safety Zones */}
-          <Circle
-            center={{
-              latitude: mapRegion.latitude,
-              longitude: mapRegion.longitude,
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#007AFF" />
+            <Text style={styles.loadingText}>
+              Loading map...
+            </Text>
+          </View>
+        ) : (
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            region={mapRegion}
+            onPress={handleMapPress}
+            showsUserLocation={true}
+            showsMyLocationButton={false}
+            loadingEnabled={true}
+            loadingIndicatorColor="#007AFF"
+            loadingBackgroundColor="#F2F2F7"
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+            onMapReady={() => {
+              console.log('Map is ready');
+              setMapReady(true);
+              // If we have location, animate to it
+              if (location) {
+                setTimeout(() => {
+                  mapRef.current?.animateToRegion(mapRegion, 1000);
+                }, 500);
+              }
             }}
-            radius={1000}
-            strokeColor="#34C759"
-            fillColor="rgba(52, 199, 89, 0.1)"
-            strokeWidth={2}
-          />
-
-          {/* Sample incident markers */}
-          <Marker
-            coordinate={{
-              latitude: mapRegion.latitude + 0.005,
-              longitude: mapRegion.longitude + 0.005,
+            onError={(error) => {
+              console.error('Map error:', error);
+              setErrorMsg('Map failed to load. Please try again.');
             }}
-            title="Safety Alert"
-            description="Reported incident in this area"
+            onLayout={() => {
+              console.log('Map layout completed');
+            }}
+            moveOnMarkerPress={false}
+            showsCompass={true}
+            showsScale={true}
+            showsBuildings={true}
+            showsTraffic={false}
+            showsIndoors={true}
+            showsPointsOfInterest={true}
+            mapType="standard"
           >
-            <View style={styles.incidentMarker}>
-              <Ionicons name="warning" size={20} color="white" />
-            </View>
-          </Marker>
+          {/* Safety Zones - Only render if we have a valid location */}
+          {location && (
+            <Circle
+              center={{
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+              }}
+              radius={1000}
+              strokeColor={MAP_CONFIG.ZONE_COLORS.green.stroke}
+              fillColor={MAP_CONFIG.ZONE_COLORS.green.fill}
+              strokeWidth={2}
+            />
+          )}
 
-          <Marker
-            coordinate={{
-              latitude: mapRegion.latitude - 0.003,
-              longitude: mapRegion.longitude + 0.008,
-            }}
-            title="Emergency Services"
-            description="Police station nearby"
-          >
-            <View style={styles.emergencyMarker}>
-              <Ionicons name="shield" size={20} color="white" />
-            </View>
-          </Marker>
-        </MapView>
+          {/* Sample incident markers - Only render if we have a valid location */}
+          {location && (
+            <>
+              <Marker
+                coordinate={{
+                  latitude: location.coords.latitude + 0.005,
+                  longitude: location.coords.longitude + 0.005,
+                }}
+                title="Safety Alert"
+                description="Reported incident in this area"
+                onPress={() => {
+                  Alert.alert(
+                    'Safety Alert',
+                    'Reported incident in this area. Would you like to report another incident?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Report', onPress: () => reportIncidentAtLocation(location.coords.latitude + 0.005, location.coords.longitude + 0.005) }
+                    ]
+                  );
+                }}
+              >
+                <View style={[styles.incidentMarker, { backgroundColor: MAP_CONFIG.INCIDENT_COLORS.safety_alert }]}>
+                  <Ionicons name="warning" size={20} color="white" />
+                </View>
+              </Marker>
+
+              <Marker
+                coordinate={{
+                  latitude: location.coords.latitude - 0.003,
+                  longitude: location.coords.longitude + 0.008,
+                }}
+                title="Emergency Services"
+                description="Police station nearby"
+                onPress={() => {
+                  Alert.alert(
+                    'Emergency Services',
+                    'Police station nearby. Would you like to call emergency services?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Call 911', onPress: () => {
+                        const phoneUrl = 'tel:911';
+                        import('react-native').then(({ Linking }) => {
+                          Linking.openURL(phoneUrl).catch(err => {
+                            console.error('Error opening phone:', err);
+                            Alert.alert('Error', 'Unable to make phone call using your SIM. Please call 911 manually.');
+                          });
+                        });
+                      }}
+                    ]
+                  );
+                }}
+              >
+                <View style={[styles.emergencyMarker, { backgroundColor: MAP_CONFIG.EMERGENCY_COLORS.police }]}>
+                  <Ionicons name="shield" size={20} color="white" />
+                </View>
+              </Marker>
+            </>
+          )}
+          </MapView>
+        )}
 
         {/* Map Controls */}
         <View style={styles.mapControls}>
@@ -144,15 +246,15 @@ export default function MapScreen() {
         {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#34C759' }]} />
+            <View style={[styles.legendColor, { backgroundColor: MAP_CONFIG.ZONE_COLORS.green.stroke }]} />
             <Text style={styles.legendText}>Safe Zone</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#FF9500' }]} />
+            <View style={[styles.legendColor, { backgroundColor: MAP_CONFIG.ZONE_COLORS.yellow.stroke }]} />
             <Text style={styles.legendText}>Caution Zone</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: '#FF3B30' }]} />
+            <View style={[styles.legendColor, { backgroundColor: MAP_CONFIG.ZONE_COLORS.red.stroke }]} />
             <Text style={styles.legendText}>High Risk Zone</Text>
           </View>
         </View>
@@ -161,6 +263,15 @@ export default function MapScreen() {
       {errorMsg && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{errorMsg}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              setErrorMsg(null);
+              getCurrentLocation();
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
@@ -271,7 +382,6 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
   },
   incidentMarker: {
-    backgroundColor: '#FF9500',
     borderRadius: 15,
     width: 30,
     height: 30,
@@ -279,7 +389,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emergencyMarker: {
-    backgroundColor: '#007AFF',
     borderRadius: 15,
     width: 30,
     height: 30,
@@ -294,10 +403,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
     borderRadius: 10,
     padding: 15,
+    alignItems: 'center',
   },
   errorText: {
     color: 'white',
     textAlign: 'center',
     fontWeight: '600',
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

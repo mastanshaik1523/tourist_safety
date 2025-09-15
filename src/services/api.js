@@ -2,18 +2,16 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// Configure API base URL based on platform
-// For Android emulator: use localhost with adb port forwarding (adb reverse tcp:3000 tcp:3000)
-// For physical device: use your machine's IP address
+// Configure API base URL based on environment
 const getApiBaseUrl = () => {
   if (__DEV__) {
-    // Development mode - use network IP for physical devices, localhost for emulator
+    // Development mode - use local development server
     return Platform.OS === 'android' 
-      ? 'http://192.168.29.8:3000/api'  // Network IP for physical device
+      ? 'http://10.0.10.143:3000/api'  // Network IP for physical device
       : 'http://localhost:3000/api';     // localhost for iOS simulator
   }
-  // Production mode - use your production API URL
-  return 'https://your-production-api.com/api';
+  // Production mode - use Railway deployment URL
+  return 'https://touristsafety-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

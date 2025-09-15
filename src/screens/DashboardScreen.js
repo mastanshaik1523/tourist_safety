@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import * as SMS from 'expo-sms';
+import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '../context/AuthContext';
 import { safetyZonesAPI, incidentsAPI, weatherAPI } from '../services/api';
 
@@ -42,7 +44,30 @@ export default function DashboardScreen({ navigation }) {
       setLocationTracking(user.locationTracking.enabled);
     }
     startAnimations();
+    checkDeviceCapabilities();
   }, [user]);
+
+  const checkDeviceCapabilities = async () => {
+    try {
+      // Check if SMS is available
+      const smsAvailable = await SMS.isAvailableAsync();
+      console.log('SMS available:', smsAvailable);
+      
+      // Check if phone calls are possible
+      const canMakeCalls = await Linking.canOpenURL('tel:1234567890');
+      console.log('Can make calls:', canMakeCalls);
+      
+      if (!smsAvailable) {
+        console.warn('SMS is not available on this device');
+      }
+      
+      if (!canMakeCalls) {
+        console.warn('Phone calls are not available on this device');
+      }
+    } catch (error) {
+      console.error('Error checking device capabilities:', error);
+    }
+  };
 
   const startAnimations = () => {
     // SOS pulse animation
@@ -109,10 +134,22 @@ export default function DashboardScreen({ navigation }) {
       const storedContacts = await AsyncStorage.getItem('emergencyContacts');
       
       if (storedContacts) {
-        setEmergencyContacts(JSON.parse(storedContacts));
+        const contacts = JSON.parse(storedContacts);
+        setEmergencyContacts(contacts);
+        console.log('Loaded emergency contacts:', contacts);
       } else {
-        // If no stored contacts, use empty array (don't set default here)
-        setEmergencyContacts([]);
+        // Set default emergency contacts if none exist
+        const defaultContacts = [
+          {
+            id: '1',
+            name: 'Emergency Services',
+            phoneNumber: '911',
+            relationship: 'Emergency'
+          }
+        ];
+        setEmergencyContacts(defaultContacts);
+        await AsyncStorage.setItem('emergencyContacts', JSON.stringify(defaultContacts));
+        console.log('Set default emergency contacts');
       }
     } catch (error) {
       console.error('Error loading emergency contacts:', error);
@@ -187,17 +224,96 @@ export default function DashboardScreen({ navigation }) {
 
   const makeEmergencyCall = async (phoneNumber) => {
     try {
-      const phoneUrl = `tel:${phoneNumber}`;
-      const canOpen = await Linking.canOpenURL(phoneUrl);
+      console.log('Making emergency call to:', phoneNumber);
       
-      if (canOpen) {
-        await Linking.openURL(phoneUrl);
-      } else {
-        Alert.alert('Error', 'Unable to make phone call. Please check your device settings.');
+      // Clean phone number (remove any non-digit characters except +)
+      const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
+      
+      console.log('Cleaned phone number:', cleanNumber);
+      
+      // Try multiple phone URL formats in order of preference
+      const phoneUrls = [
+        `tel:${cleanNumber}`,
+        `tel://${cleanNumber}`,
+        `telprompt:${cleanNumber}`,
+        `telprompt://${cleanNumber}`
+      ];
+      
+      let callInitiated = false;
+      
+      for (const phoneUrl of phoneUrls) {
+        try {
+          console.log('Trying phone URL:', phoneUrl);
+          
+          // Check if the device can make phone calls
+          const canMakeCall = await Linking.canOpenURL(phoneUrl);
+          console.log('Can make call with', phoneUrl, ':', canMakeCall);
+          
+          if (canMakeCall) {
+            // Open the phone dialer and initiate the call
+            await Linking.openURL(phoneUrl);
+            console.log('Emergency call initiated successfully with:', phoneUrl);
+            callInitiated = true;
+            break;
+          }
+        } catch (urlError) {
+          console.log('URL failed:', phoneUrl, urlError);
+          continue;
+        }
+      }
+      
+      if (!callInitiated) {
+        // Try direct call without checking canOpenURL first
+        try {
+          console.log('Trying direct call without canOpenURL check');
+          await Linking.openURL(`tel:${cleanNumber}`);
+          console.log('Direct call successful');
+          callInitiated = true;
+        } catch (directError) {
+          console.log('Direct call failed:', directError);
+        }
+      }
+      
+      if (!callInitiated) {
+        Alert.alert(
+          'Cannot Make Call',
+          `Unable to make phone call to ${cleanNumber}. This might be due to device restrictions or missing phone app.`,
+          [
+            { text: 'OK' },
+            { 
+                text: 'Copy Number', 
+                onPress: async () => {
+                  await Clipboard.setStringAsync(cleanNumber);
+                  Alert.alert('Number Copied', `Phone number ${cleanNumber} has been copied to clipboard. Please paste it in your phone app.`);
+                }
+            },
+            {
+              text: 'Try Again',
+              onPress: () => makeEmergencyCall(phoneNumber)
+            }
+          ]
+        );
       }
     } catch (error) {
       console.error('Error making emergency call:', error);
-      Alert.alert('Error', 'Failed to initiate phone call. Please try again.');
+      Alert.alert(
+        'Call Error', 
+        `Failed to initiate phone call to ${phoneNumber}. Please try calling manually.`,
+        [
+          { text: 'OK' },
+          { 
+            text: 'Copy Number', 
+            onPress: async () => {
+              await Clipboard.setStringAsync(phoneNumber);
+              Alert.alert('Number Copied', 'Phone number has been copied to clipboard.');
+            }
+          },
+          {
+            text: 'Try Again',
+            onPress: () => makeEmergencyCall(phoneNumber)
+          }
+        ]
+      );
     }
   };
 
@@ -216,6 +332,7 @@ export default function DashboardScreen({ navigation }) {
 
     try {
       setIsSharingLocation(true);
+      console.log('Starting location sharing process...');
 
       // Request location permission
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -228,84 +345,56 @@ export default function DashboardScreen({ navigation }) {
         return;
       }
 
-      // Get current location
+      // Get current GPS location using expo-location
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
-        timeout: 10000,
+        timeout: 15000,
+        maximumAge: 30000,
       });
 
       const { latitude, longitude } = location.coords;
+      console.log('Got GPS location:', latitude, longitude);
       
-      // Create location message
-      const locationMessage = `🚨 EMERGENCY LOCATION ALERT 🚨\n\nI need help! My current location is:\n\n📍 Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\n🗺️ Google Maps: https://www.google.com/maps?q=${latitude},${longitude}\n\n⏰ Time: ${new Date().toLocaleString()}\n\nPlease help me immediately!`;
+      // Create Google Maps link
+      const googleMapsLink = `https://www.google.com/maps?q=${latitude},${longitude}`;
+      
+      // Create location message with Google Maps link
+      const locationMessage = `🚨 EMERGENCY LOCATION ALERT 🚨\n\nI need help! My current GPS location is:\n\n📍 Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\n🗺️ Google Maps: ${googleMapsLink}\n\n⏰ Time: ${new Date().toLocaleString()}\n\nPlease help me immediately!`;
 
-      // Create SMS URLs for each emergency contact
-      const smsUrls = emergencyContacts.map(contact => {
-        const encodedMessage = encodeURIComponent(locationMessage);
-        return `sms:${contact.phoneNumber}?body=${encodedMessage}`;
-      });
-
-      // Show confirmation dialog
-      Alert.alert(
-        'Send Location to Emergency Contacts',
-        `Send your current location to ${emergencyContacts.length} emergency contact${emergencyContacts.length !== 1 ? 's' : ''}?\n\nThis will open your messaging app.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Send Location',
-            onPress: async () => {
-              try {
-                // Open SMS for the first contact (most common use case)
-                const firstSmsUrl = smsUrls[0];
-                const canOpen = await Linking.canOpenURL(firstSmsUrl);
-                
-                if (canOpen) {
-                  await Linking.openURL(firstSmsUrl);
-                  
-                  // If there are multiple contacts, show option to send to others
-                  if (emergencyContacts.length > 1) {
-                    setTimeout(() => {
-                      Alert.alert(
-                        'Multiple Contacts',
-                        `Location sent to ${emergencyContacts[0].name}. Would you like to send to the other ${emergencyContacts.length - 1} contact${emergencyContacts.length - 1 !== 1 ? 's' : ''} as well?`,
-                        [
-                          { text: 'No', style: 'cancel' },
-                          {
-                            text: 'Send to All',
-                            onPress: () => {
-                              // Send to remaining contacts
-                              emergencyContacts.slice(1).forEach(async (contact, index) => {
-                                setTimeout(async () => {
-                                  try {
-                                    await Linking.openURL(smsUrls[index + 1]);
-                                  } catch (error) {
-                                    console.error('Error sending SMS to contact:', contact.name, error);
-                                  }
-                                }, index * 1000); // Stagger the SMS openings
-                              });
-                            }
-                          }
-                        ]
-                      );
-                    }, 2000);
-                  }
-                } else {
-                  Alert.alert('Error', 'Unable to open messaging app. Please check your device settings.');
-                }
-              } catch (error) {
-                console.error('Error sending location:', error);
-                Alert.alert('Error', 'Failed to send location. Please try again.');
+      // Check if SMS is available using expo-sms
+      const isAvailable = await SMS.isAvailableAsync();
+      
+      if (!isAvailable) {
+        Alert.alert(
+          'SMS Not Available',
+          'SMS is not available on this device. This might be because:\n\n• You\'re using a simulator/emulator\n• SMS app is not installed\n• Device doesn\'t support SMS\n\nLocation has been copied to clipboard.',
+          [
+            { text: 'OK' },
+            { 
+              text: 'Copy Location', 
+              onPress: async () => {
+                await Clipboard.setStringAsync(locationMessage);
+                Alert.alert('Copied', 'Location details copied to clipboard.');
+              }
+            },
+            {
+              text: 'Try Anyway',
+              onPress: () => {
+                // Continue with fallback methods
+                showSMSConfirmationDialog(locationMessage);
               }
             }
-          }
-        ]
-      );
+          ]
+        );
+        return;
+      }
 
+      showSMSConfirmationDialog(locationMessage);
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert(
         'Location Error',
-        'Unable to get your current location. Please check your location settings and try again.',
+        'Unable to get your current GPS location. Please check your location settings and try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -313,7 +402,144 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
+  const showSMSConfirmationDialog = (locationMessage) => {
+    // Show confirmation dialog
+    Alert.alert(
+      'Send Location to Emergency Contacts',
+      `Send your current GPS location to ${emergencyContacts.length} emergency contact${emergencyContacts.length !== 1 ? 's' : ''}?\n\nThis will use your phone's SMS to send the location with a Google Maps link.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Send Location',
+            onPress: async () => {
+              try {
+                // Extract phone numbers from emergency contacts
+                const phoneNumbers = emergencyContacts.map(contact => contact.phoneNumber);
+                
+                console.log('Sending SMS to contacts:', phoneNumbers);
+                
+                // First try expo-sms
+                try {
+                  const result = await SMS.sendSMSAsync(phoneNumbers, locationMessage);
+                  
+                  if (result.result === 'sent') {
+                    console.log('SMS sent successfully via expo-sms');
+                    Alert.alert(
+                      'Location Sent',
+                      `Your GPS location has been sent to ${emergencyContacts.length} emergency contact${emergencyContacts.length !== 1 ? 's' : ''} via SMS with Google Maps link.`,
+                      [{ text: 'OK' }]
+                    );
+                    return;
+                  } else if (result.result === 'cancelled') {
+                    console.log('SMS sending cancelled by user');
+                    Alert.alert(
+                      'SMS Cancelled',
+                      'SMS sending was cancelled. Location has been copied to clipboard.',
+                      [
+                        { text: 'OK' },
+                        { 
+                          text: 'Copy Location', 
+                          onPress: () => {
+                            Clipboard.setString(locationMessage);
+                            Alert.alert('Copied', 'Location details copied to clipboard.');
+                          }
+                        }
+                      ]
+                    );
+                    return;
+                  }
+                } catch (smsError) {
+                  console.log('expo-sms failed, trying fallback methods:', smsError);
+                }
+                
+                // Fallback: Try using Linking.openURL with SMS URLs
+                console.log('Trying SMS fallback with Linking.openURL');
+                
+                const smsUrls = [
+                  `sms:${phoneNumbers[0]}?body=${encodeURIComponent(locationMessage)}`,
+                  `sms://${phoneNumbers[0]}?body=${encodeURIComponent(locationMessage)}`,
+                  `sms:${phoneNumbers[0]}`,
+                  `sms://${phoneNumbers[0]}`
+                ];
+                
+                let smsOpened = false;
+                
+                for (const smsUrl of smsUrls) {
+                  try {
+                    console.log('Trying SMS URL:', smsUrl);
+                    const canOpen = await Linking.canOpenURL(smsUrl);
+                    
+                    if (canOpen) {
+                      await Linking.openURL(smsUrl);
+                      console.log('SMS opened successfully with URL:', smsUrl);
+                      smsOpened = true;
+                      break;
+                    }
+                  } catch (urlError) {
+                    console.log('SMS URL failed:', smsUrl, urlError);
+                  }
+                }
+                
+                if (smsOpened) {
+                  Alert.alert(
+                    'SMS Opened',
+                    'SMS app has been opened with your location. Please send the message manually.',
+                    [{ text: 'OK' }]
+                  );
+                } else {
+                  // Final fallback: Copy location to clipboard
+                  await Clipboard.setStringAsync(locationMessage);
+                  Alert.alert(
+                    'SMS Not Available',
+                    'Unable to open SMS app. Location details have been copied to clipboard. Please paste it in your messaging app manually.',
+                    [
+                      { text: 'OK' },
+                      { 
+                        text: 'Copy Location', 
+                        onPress: async () => {
+                          await Clipboard.setStringAsync(locationMessage);
+                          Alert.alert('Copied', 'Location details copied to clipboard.');
+                        }
+                      },
+                      { 
+                        text: 'Try Again', 
+                        onPress: () => sendLocationToEmergencyContacts()
+                      }
+                    ]
+                  );
+                }
+              } catch (error) {
+                console.error('Error sending SMS:', error);
+                // Final fallback: Copy location to clipboard
+                await Clipboard.setStringAsync(locationMessage);
+                Alert.alert(
+                  'SMS Error',
+                  'Failed to send SMS. Location details have been copied to clipboard.',
+                  [
+                    { text: 'OK' },
+                    { 
+                      text: 'Copy Location', 
+                      onPress: async () => {
+                        await Clipboard.setStringAsync(locationMessage);
+                        Alert.alert('Copied', 'Location details copied to clipboard.');
+                      }
+                    },
+                    { 
+                      text: 'Try Again', 
+                      onPress: () => sendLocationToEmergencyContacts()
+                    }
+                  ]
+                );
+              }
+            }
+          }
+        ]
+      );
+  };
+
   const handleSOSButton = () => {
+    console.log('SOS button pressed, emergency contacts:', emergencyContacts);
+    
     if (emergencyContacts.length === 0) {
       Alert.alert(
         'No Emergency Contacts',
@@ -331,6 +557,8 @@ export default function DashboardScreen({ navigation }) {
       text: `${contact.name} (${contact.phoneNumber})`,
       onPress: () => makeEmergencyCall(contact.phoneNumber)
     }));
+
+    console.log('Showing emergency contacts dialog with', contactOptions.length, 'options');
 
     Alert.alert(
       'Emergency Call',
