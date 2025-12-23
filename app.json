@@ -64,11 +64,11 @@
       ]
     ],
     "extra": {
+      "googleMapsApiKey": "AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM",
       "eas": {
-        "projectId": "4d1b1d2d-fce6-42e8-a207-60dcd4404fe7"
-      },
-      "googleMapsApiKey": "AIzaSyBVw-LLDbpvRIfK6HpeWFvtsV_HoPZc3CM"
+        "projectId": "e90ca063-ba12-4146-a791-83345325baf3"
+      }
     },
-    "owner": "mastan1523"
+    "owner": "mastan778866"
   }
 }
